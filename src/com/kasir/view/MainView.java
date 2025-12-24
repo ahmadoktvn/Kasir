@@ -1,12 +1,7 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.kasir.view;
 
 import com.kasir.controller.MenuDAO;
 import com.kasir.controller.TransaksiController;
-import com.kasir.controller.TransaksiDAO;
 import com.kasir.model.Menu;
 import java.awt.*;
 import java.awt.event.*;
@@ -14,159 +9,143 @@ import java.util.List;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
-/**
- *
- * @author Ahmad
- */
-
-
-
-
 public class MainView extends JFrame {
 
-    private JTabbedPane tabPane;
-    private JLabel lblNoTransaksi, lblTotalHarga, lblSubtotalPreview;
-    private JComboBox<Menu> cboMenu;
+    private JComboBox<String> cboMenu;
     private JTextField txtHarga, txtQty, txtPelanggan;
+    private JLabel lblNoTransaksi, lblTotalHarga, lblSubtotalPreview;
     private JTable tabelKeranjang;
     private DefaultTableModel modelKeranjang;
     private JButton btnMasukPesanan, btnUpdate, btnHapus, btnBayar; 
     
+    // Untuk Tab Menu
     private JTextField txtNamaMenuBaru, txtHargaMenuBaru;
     private JButton btnSimpanMenu;
 
     private MenuDAO menuDAO;
-    private TransaksiDAO transaksiDAO;
+    private TransaksiController transController;
 
     public MainView() {
         menuDAO = new MenuDAO();
-        transaksiDAO = new TransaksiDAO();
+        transController = new TransaksiController();
         initUI();
         loadDataMenu();
-        resetTransaksi();
+        lblNoTransaksi.setText(transController.generateNoTransaksi());
     }
 
     private void initUI() {
-        setTitle("Aplikasi Kasir (Warung Nasihuy)");
+        setTitle("Aplikasi Kasir Berelasi");
         setSize(1000, 650);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        // --- PANEL KASIR ---
-        JPanel panelKasir = new JPanel(new BorderLayout(10, 10));
-        
+        // PANEL INPUT
         JPanel panelInput = new JPanel(new GridLayout(7, 2, 8, 8));
         panelInput.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
         lblNoTransaksi = new JLabel("TR-000");
-        lblNoTransaksi.setFont(new Font("Arial", Font.BOLD, 14));
-        txtPelanggan = new JTextField(); 
+        txtPelanggan = new JTextField();
         cboMenu = new JComboBox<>();
         txtHarga = new JTextField(); txtHarga.setEditable(false);
         txtQty = new JTextField();
-        lblSubtotalPreview = new JLabel("Rp 0"); 
-        lblSubtotalPreview.setForeground(Color.BLUE);
-
-        btnMasukPesanan = new JButton("Pesan");
-        btnMasukPesanan.setBackground(new Color(200, 255, 200));
+        lblSubtotalPreview = new JLabel("Rp 0"); lblSubtotalPreview.setForeground(Color.BLUE);
         
-        btnUpdate = new JButton("Update Item");
-        btnUpdate.setBackground(new Color(255, 255, 200));
-        btnUpdate.setEnabled(false);
+        btnMasukPesanan = new JButton("Pesan");
+        btnUpdate = new JButton("Update Item"); btnUpdate.setEnabled(false);
 
         panelInput.add(new JLabel("No Transaksi:")); panelInput.add(lblNoTransaksi);
-        panelInput.add(new JLabel("Nama Pelanggan:")); panelInput.add(txtPelanggan);
-        panelInput.add(new JLabel("----------------")); panelInput.add(new JLabel("----------------"));
-        panelInput.add(new JLabel("Pilih Menu:")); panelInput.add(cboMenu);
-        panelInput.add(new JLabel("Harga Satuan:")); panelInput.add(txtHarga);
-        panelInput.add(new JLabel("Jumlah (Qty):")); panelInput.add(txtQty);
-        panelInput.add(new JLabel("Subtotal Item:")); panelInput.add(lblSubtotalPreview);
+        panelInput.add(new JLabel("Pelanggan:")); panelInput.add(txtPelanggan);
+        panelInput.add(new JLabel("---")); panelInput.add(new JLabel("---"));
+        panelInput.add(new JLabel("Menu:")); panelInput.add(cboMenu);
+        panelInput.add(new JLabel("Harga:")); panelInput.add(txtHarga);
+        panelInput.add(new JLabel("Qty:")); panelInput.add(txtQty);
+        panelInput.add(new JLabel("Subtotal:")); panelInput.add(lblSubtotalPreview);
         
-        JPanel panelTombolInput = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        panelTombolInput.add(btnUpdate);
-        panelTombolInput.add(btnMasukPesanan);
-
+        JPanel panelBtn = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        panelBtn.add(btnUpdate); panelBtn.add(btnMasukPesanan);
+        
         JPanel panelAtas = new JPanel(new BorderLayout());
         panelAtas.add(panelInput, BorderLayout.CENTER);
-        panelAtas.add(panelTombolInput, BorderLayout.SOUTH);
+        panelAtas.add(panelBtn, BorderLayout.SOUTH);
 
-        // --- TABEL (DENGAN KOLOM PELANGGAN) ---
-        // Perubahan: Menambahkan "Pelanggan" di indeks 0
-        String[] header = {"Pelanggan", "Nama Item", "Harga", "Qty", "Subtotal"};
-        modelKeranjang = new DefaultTableModel(header, 0);
+        // TABEL (6 KOLOM)
+        String[] header = {"Pelanggan", "ID", "Menu", "Harga", "Qty", "Subtotal"};
+        modelKeranjang = new DefaultTableModel(header, 0) {
+            @Override public boolean isCellEditable(int row, int col) { return false; }
+        };
         tabelKeranjang = new JTable(modelKeranjang);
         
-        JPanel panelBawah = new JPanel(new BorderLayout());
-        panelBawah.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        
-        lblTotalHarga = new JLabel("Total: Rp 0");
-        lblTotalHarga.setFont(new Font("SansSerif", Font.BOLD, 30));
+        // SEMBUNYIKAN KOLOM ID (INDEX 1)
+        tabelKeranjang.getColumnModel().getColumn(1).setMinWidth(0);
+        tabelKeranjang.getColumnModel().getColumn(1).setMaxWidth(0);
+        tabelKeranjang.getColumnModel().getColumn(1).setWidth(0);
+
+        // PANEL BAWAH
+        lblTotalHarga = new JLabel("Rp 0");
+        lblTotalHarga.setFont(new Font("Arial", Font.BOLD, 24));
         lblTotalHarga.setHorizontalAlignment(SwingConstants.RIGHT);
         
-        JPanel tombolBawah = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        btnHapus = new JButton("Hapus Item");
-        btnBayar = new JButton("SIMPAN & BAYAR");
-        btnBayar.setBackground(new Color(200, 200, 255));
+        JPanel panelBawah = new JPanel(new BorderLayout());
+        JPanel btnBawah = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        btnHapus = new JButton("Hapus");
+        btnBayar = new JButton("BAYAR");
+        btnBawah.add(btnHapus); btnBawah.add(btnBayar);
         
-        tombolBawah.add(btnHapus);
-        tombolBawah.add(btnBayar);
-        
-        panelBawah.add(tombolBawah, BorderLayout.WEST);
+        panelBawah.add(btnBawah, BorderLayout.WEST);
         panelBawah.add(lblTotalHarga, BorderLayout.CENTER);
 
+        // TAB UTAMA
+        JPanel panelKasir = new JPanel(new BorderLayout());
         panelKasir.add(panelAtas, BorderLayout.NORTH);
         panelKasir.add(new JScrollPane(tabelKeranjang), BorderLayout.CENTER);
         panelKasir.add(panelBawah, BorderLayout.SOUTH);
 
-        // --- PANEL MENU ---
-        JPanel panelMenu = new JPanel(new GridBagLayout());
-        JPanel formMenu = new JPanel(new GridLayout(3, 2, 10, 10));
-        txtNamaMenuBaru = new JTextField(20);
-        txtHargaMenuBaru = new JTextField(20);
-        btnSimpanMenu = new JButton("Simpan Menu Database");
-        formMenu.add(new JLabel("Nama:")); formMenu.add(txtNamaMenuBaru);
-        formMenu.add(new JLabel("Harga:")); formMenu.add(txtHargaMenuBaru);
-        formMenu.add(new JLabel("")); formMenu.add(btnSimpanMenu);
-        panelMenu.add(formMenu);
+        // TAB MENU
+        JPanel panelMenu = new JPanel(new FlowLayout());
+        txtNamaMenuBaru = new JTextField(15);
+        txtHargaMenuBaru = new JTextField(10);
+        btnSimpanMenu = new JButton("Simpan Menu");
+        panelMenu.add(new JLabel("Menu:")); panelMenu.add(txtNamaMenuBaru);
+        panelMenu.add(new JLabel("Harga:")); panelMenu.add(txtHargaMenuBaru);
+        panelMenu.add(btnSimpanMenu);
 
-        tabPane = new JTabbedPane();
-        tabPane.addTab("Transaksi Kasir", panelKasir);
-        tabPane.addTab("Kelola Menu", panelMenu);
-        add(tabPane);
+        JTabbedPane tab = new JTabbedPane();
+        tab.add("Kasir", panelKasir);
+        tab.add("Menu", panelMenu);
+        add(tab);
 
-        // ================= EVENTS =================
+        // --- EVENTS ---
 
+        // 1. Pilih Menu Combo
         cboMenu.addActionListener(e -> {
-            Menu m = (Menu) cboMenu.getSelectedItem();
-            if(m != null) {
-                txtHarga.setText(String.valueOf(m.getHarga()));
-                txtQty.requestFocus();
-            }
+            try {
+                if(cboMenu.getSelectedItem() != null) {
+                    String[] s = cboMenu.getSelectedItem().toString().split(":");
+                    txtHarga.setText(s[2]);
+                    txtQty.requestFocus();
+                }
+            } catch(Exception ex){}
         });
 
+        // 2. Ketik Qty (Preview)
         txtQty.addKeyListener(new KeyAdapter() {
-            @Override
             public void keyReleased(KeyEvent e) {
-                TransaksiController.hitungPreview(MainView.this);
+                transController.hitungPreview(MainView.this);
             }
         });
 
-        btnMasukPesanan.addActionListener(e -> aksiMasukPesanan());
+        // 3. Tombol Pesan
+        btnMasukPesanan.addActionListener(e -> transController.tambahKeKeranjang(this));
 
-        // Update Mouse Listener untuk menyesuaikan Index Kolom Baru
+        // 4. Klik Tabel (Ambil Data ke Form)
         tabelKeranjang.addMouseListener(new MouseAdapter() {
-            @Override
             public void mouseClicked(MouseEvent e) {
                 int row = tabelKeranjang.getSelectedRow();
                 if (row != -1) {
-                    // Index 0: Pelanggan, Index 1: Nama Menu, Index 2: Harga, Index 3: Qty
-                    String namaPlg = modelKeranjang.getValueAt(row, 0).toString();
-                    String harga = modelKeranjang.getValueAt(row, 2).toString();
-                    String qty = modelKeranjang.getValueAt(row, 3).toString();
-                    
-                    txtPelanggan.setText(namaPlg); // Set balik nama pelanggan
-                    txtHarga.setText(harga);
-                    txtQty.setText(qty);
+                    // Index Baru: 0=Plg, 1=ID, 2=Menu, 3=Harga, 4=Qty
+                    txtPelanggan.setText(modelKeranjang.getValueAt(row, 0).toString());
+                    txtHarga.setText(modelKeranjang.getValueAt(row, 3).toString());
+                    txtQty.setText(modelKeranjang.getValueAt(row, 4).toString());
                     
                     btnUpdate.setEnabled(true);
                     btnMasukPesanan.setEnabled(false);
@@ -174,108 +153,41 @@ public class MainView extends JFrame {
             }
         });
 
-        btnUpdate.addActionListener(e -> aksiUpdatePesanan());
-
-        btnHapus.addActionListener(e -> {
-            if(tabelKeranjang.getSelectedRow() != -1) {
-                modelKeranjang.removeRow(tabelKeranjang.getSelectedRow());
-                TransaksiController.hitungTotalBelanja(this);
-                resetFormInput();
+        // 5. Tombol Update (PERBAIKAN UTAMA DISINI)
+        btnUpdate.addActionListener(e -> {
+            int row = tabelKeranjang.getSelectedRow();
+            if (row != -1) {
+                try {
+                    int qty = Integer.parseInt(txtQty.getText());
+                    double harga = Double.parseDouble(txtHarga.getText());
+                    double sub = qty * harga;
+                    
+                    // Update index 4 (Qty) dan 5 (Subtotal)
+                    modelKeranjang.setValueAt(txtPelanggan.getText(), row, 0);
+                    modelKeranjang.setValueAt(qty, row, 4);
+                    modelKeranjang.setValueAt(sub, row, 5);
+                    
+                    transController.hitungTotalBelanja(this);
+                    resetInput();
+                } catch(Exception ex) {
+                    JOptionPane.showMessageDialog(this, "Qty Salah!");
+                }
             }
         });
 
-        btnBayar.addActionListener(e -> aksiBayarDatabase());
-
-        btnSimpanMenu.addActionListener(e -> aksiSimpanMenu());
-    }
-
-    // --- METHOD LOGIKA ---
-
-    private void aksiMasukPesanan() {
-        try {
-            Menu m = (Menu) cboMenu.getSelectedItem();
-            if (txtQty.getText().isEmpty()) return;
-            
-            int qty = Integer.parseInt(txtQty.getText());
-            double subtotal = m.getHarga() * qty;
-            
-            // Ambil Nama Pelanggan (Jika kosong, isi "Umum")
-            String namaPlg = txtPelanggan.getText().trim();
-            if (namaPlg.isEmpty()) namaPlg = "Pelanggan";
-
-            // Tambahkan kolom pelanggan di awal
-            modelKeranjang.addRow(new Object[]{
-                namaPlg, 
-                m.getNama(), 
-                m.getHarga(), 
-                qty, 
-                subtotal
-            });
-            
-            TransaksiController.hitungTotalBelanja(this);
-            resetFormInput();
-            
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Qty harus angka!");
-        }
-    }
-
-    private void aksiUpdatePesanan() {
-        int row = tabelKeranjang.getSelectedRow();
-        if (row != -1) {
-            try {
-                int qtyBaru = Integer.parseInt(txtQty.getText());
-                double harga = Double.parseDouble(txtHarga.getText());
-                double subtotalBaru = harga * qtyBaru;
-                String namaPlg = txtPelanggan.getText();
-
-                // Update Tabel sesuai index baru
-                modelKeranjang.setValueAt(namaPlg, row, 0);      // Update Nama Pelanggan
-                modelKeranjang.setValueAt(qtyBaru, row, 3);      // Update Qty (Index 3)
-                modelKeranjang.setValueAt(subtotalBaru, row, 4); // Update Subtotal (Index 4)
-                
-                TransaksiController.hitungTotalBelanja(this);
-                resetFormInput();
-                
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "Gagal Update, cek inputan!");
-            }
-        }
-    }
-
-   private void aksiBayarDatabase() {
-        if (modelKeranjang.getRowCount() == 0) {
-            JOptionPane.showMessageDialog(this, "Keranjang masih kosong!");
-            return;
-        }
-
-        String noTrx = lblNoTransaksi.getText();
-        // Ambil nama pelanggan yang diketik di text field atas
-        String pelangganUtama = txtPelanggan.getText().isEmpty() ? "Pelanggan" : txtPelanggan.getText();
+        // 6. Tombol Lain
+        btnHapus.addActionListener(e -> transController.hapusItemKeranjang(this));
+        btnBayar.addActionListener(e -> transController.simpanTransaksi(this));
         
-        // Panggil DAO (Parameter Total dihapus karena tabelnya sudah disatukan)
-        boolean sukses = transaksiDAO.simpanTransaksi(noTrx, pelangganUtama, modelKeranjang);
-        
-        if (sukses) {
-            JOptionPane.showMessageDialog(this, "Transaksi BERHASIL Disimpan!");
-            resetTransaksi();
-        } else {
-            JOptionPane.showMessageDialog(this, "GAGAL menyimpan transaksi!");
-        }
-    }
-    
-    private void aksiSimpanMenu() {
-        String nama = txtNamaMenuBaru.getText();
-        String hargaS = txtHargaMenuBaru.getText();
-        if(!nama.isEmpty() && !hargaS.isEmpty()){
-            menuDAO.tambahMenu(nama, Double.parseDouble(hargaS));
-            JOptionPane.showMessageDialog(this, "Menu Tersimpan!");
+        btnSimpanMenu.addActionListener(e -> {
+            menuDAO.tambahMenu(txtNamaMenuBaru.getText(), Double.parseDouble(txtHargaMenuBaru.getText()));
+            loadDataMenu();
             txtNamaMenuBaru.setText(""); txtHargaMenuBaru.setText("");
-            loadDataMenu(); 
-        }
+            JOptionPane.showMessageDialog(this, "Menu Disimpan");
+        });
     }
 
-    private void resetFormInput() {
+    private void resetInput() {
         txtQty.setText("");
         lblSubtotalPreview.setText("Rp 0");
         btnUpdate.setEnabled(false);
@@ -285,25 +197,22 @@ public class MainView extends JFrame {
 
     private void loadDataMenu() {
         cboMenu.removeAllItems();
-        List<Menu> data = menuDAO.getAllMenu();
-        for(Menu m : data) cboMenu.addItem(m);
+        List<Menu> list = menuDAO.getAllMenu();
+        for(Menu m : list) {
+            // Format String ID:Nama:Harga untuk diparsing Controller
+            cboMenu.addItem(m.getId() + ":" + m.getNama() + ":" + (int)m.getHarga());
+        }
     }
 
-    private void resetTransaksi() {
-        modelKeranjang.setRowCount(0);
-        lblTotalHarga.setText("Rp 0");
-        lblSubtotalPreview.setText("Rp 0");
-        lblNoTransaksi.setText(TransaksiController.generateNoTransaksi());
-        txtPelanggan.setText("");
-        resetFormInput();
-    }
-
-    // Getter
+    // Getters
     public JTable getTabelKeranjang() { return tabelKeranjang; }
     public JLabel getLblTotalHarga() { return lblTotalHarga; }
     public JTextField getTxtHarga() { return txtHarga; }
     public JTextField getTxtQty() { return txtQty; }
+    public JTextField getTxtNamaPelanggan() { return txtPelanggan; }
     public JLabel getLblSubtotalPreview() { return lblSubtotalPreview; }
+    public JComboBox<String> getCbIdMasakan() { return cboMenu; }
+    public JLabel getTxtNoTransaksi() { return lblNoTransaksi; }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new MainView().setVisible(true));

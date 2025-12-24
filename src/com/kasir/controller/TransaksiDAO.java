@@ -2,7 +2,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package com.kasir.controller;
+package com.kasir.controller; // Pastikan package ini sesuai struktur folder Anda (biasanya com.kasir.dao)
 
 import com.kasir.koneksi.Koneksi;
 import java.sql.Connection;
@@ -13,46 +13,48 @@ import javax.swing.table.DefaultTableModel;
  *
  * @author Ahmad
  */
-
 public class TransaksiDAO {
 
     public boolean simpanTransaksi(String noTrx, String namaPelanggan, DefaultTableModel modelKeranjang) {
         Connection c = null;
         try {
             c = Koneksi.configDB();
-            c.setAutoCommit(false); // Biar aman, simpan sekaligus
+            c.setAutoCommit(false); // Mode Transaksi: Simpan sekaligus
 
-            // Query INSERT ke satu tabel saja
-            String sql = "INSERT INTO data_penjualan (no_transaksi, nama_pelanggan, nama_menu, harga, qty, subtotal) VALUES (?, ?, ?, ?, ?, ?)";
+            // --- PERUBAHAN 1: SQL menggunakan kolom 'id_menu' ---
+            String sql = "INSERT INTO data_penjualan (no_transaksi, nama_pelanggan, id_menu, harga, qty, subtotal) VALUES (?, ?, ?, ?, ?, ?)";
             PreparedStatement p = c.prepareStatement(sql);
 
             // Looping isi keranjang belanja
             for (int i = 0; i < modelKeranjang.getRowCount(); i++) {
-                // Ambil data dari tabel GUI
-                // Index 0=Pelanggan(Item), 1=Menu, 2=Harga, 3=Qty, 4=Subtotal
                 
-                // Catatan: Kita pakai 'namaPelanggan' dari parameter utama (Header) 
-                // atau bisa juga ambil dari tabel index 0 jika nama per item beda-beda.
-                // Disini saya pakai parameter utama agar konsisten satu struk satu nama.
+                // --- PERUBAHAN 2: Mapping Kolom Tabel GUI ---
+                // Asumsi urutan kolom dari Controller nanti adalah:
+                // [0] Pelanggan 
+                // [1] ID MENU (Integer) <--- Kita ambil ini
+                // [2] Nama Menu (String)
+                // [3] Harga
+                // [4] Qty
+                // [5] Subtotal
                 
-                String namaMenu = modelKeranjang.getValueAt(i, 1).toString();
-                double harga = Double.parseDouble(modelKeranjang.getValueAt(i, 2).toString());
-                int qty = Integer.parseInt(modelKeranjang.getValueAt(i, 3).toString());
-                double subtotal = Double.parseDouble(modelKeranjang.getValueAt(i, 4).toString());
+                int idMenu = Integer.parseInt(modelKeranjang.getValueAt(i, 1).toString()); // Ambil ID
+                double harga = Double.parseDouble(modelKeranjang.getValueAt(i, 3).toString());
+                int qty = Integer.parseInt(modelKeranjang.getValueAt(i, 4).toString());
+                double subtotal = Double.parseDouble(modelKeranjang.getValueAt(i, 5).toString());
 
                 // Set Parameter Query
-                p.setString(1, noTrx);          // Kolom no_transaksi
-                p.setString(2, namaPelanggan);  // Kolom nama_pelanggan (Diulang setiap baris)
-                p.setString(3, namaMenu);       // Kolom nama_menu
-                p.setDouble(4, harga);          // Kolom harga
-                p.setInt(5, qty);               // Kolom qty
-                p.setDouble(6, subtotal);       // Kolom subtotal
+                p.setString(1, noTrx);          
+                p.setString(2, namaPelanggan);  
+                p.setInt(3, idMenu);           // Masukkan ID Menu (Int)
+                p.setDouble(4, harga);          
+                p.setInt(5, qty);               
+                p.setDouble(6, subtotal);       
                 
                 p.addBatch(); // Masukkan ke antrian
             }
             
             p.executeBatch(); // Eksekusi semua antrian
-            c.commit();       // Simpan permanen
+            c.commit();       // Simpan permanen ke database
             c.setAutoCommit(true);
             return true;
 
