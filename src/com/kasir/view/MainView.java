@@ -12,12 +12,15 @@ import javax.swing.table.DefaultTableModel;
 public class MainView extends JFrame {
 
     private JComboBox<String> cboMenu;
-    private JTextField txtHarga, txtQty, txtPelanggan;
-    private JLabel lblNoTransaksi, lblTotalHarga, lblSubtotalPreview;
-    private JTable tabelKeranjang;
-    private DefaultTableModel modelKeranjang;
-    private JButton btnMasukPesanan, btnUpdate, btnHapus, btnBayar; 
-    
+private JTextField txtHarga, txtQty, txtPelanggan;
+private JLabel lblNoTransaksi, lblTotalHarga, lblSubtotalPreview;
+private JTable tabelKeranjang;
+private DefaultTableModel modelKeranjang;
+private JButton btnMasukPesanan, btnUpdate, btnHapus, btnBayar;
+
+// Tambahkan dua baris ini untuk riwayat
+private JTable tabelRiwayat;
+private DefaultTableModel modelRiwayat;
     // Untuk Tab Menu
     private JTextField txtNamaMenuBaru, txtHargaMenuBaru;
     private JButton btnSimpanMenu;
@@ -113,7 +116,21 @@ public class MainView extends JFrame {
         tab.add("Kasir", panelKasir);
         tab.add("Menu", panelMenu);
         add(tab);
+        JPanel panelRiwayat = new JPanel(new BorderLayout());
+        String[] headerRiwayat = {"No Trx", "Tanggal", "Pelanggan", "Menu", "Qty", "Total"};
+        modelRiwayat = new DefaultTableModel(headerRiwayat, 0);
+        tabelRiwayat = new JTable(modelRiwayat);
 
+        JButton btnRefresh = new JButton("Refresh Riwayat");
+        btnRefresh.addActionListener(e -> transController.refreshRiwayat(modelRiwayat));
+
+        panelRiwayat.add(new JScrollPane(tabelRiwayat), BorderLayout.CENTER);
+        panelRiwayat.add(btnRefresh, BorderLayout.SOUTH);
+
+        tab.add("Riwayat Transaksi", panelRiwayat);
+        // ----------------------
+
+        add(tab);
         // --- EVENTS ---
 
         // 1. Pilih Menu Combo
@@ -155,25 +172,30 @@ public class MainView extends JFrame {
 
         // 5. Tombol Update (PERBAIKAN UTAMA DISINI)
         btnUpdate.addActionListener(e -> {
-            int row = tabelKeranjang.getSelectedRow();
-            if (row != -1) {
-                try {
-                    int qty = Integer.parseInt(txtQty.getText());
-                    double harga = Double.parseDouble(txtHarga.getText());
-                    double sub = qty * harga;
-                    
-                    // Update index 4 (Qty) dan 5 (Subtotal)
-                    modelKeranjang.setValueAt(txtPelanggan.getText(), row, 0);
-                    modelKeranjang.setValueAt(qty, row, 4);
-                    modelKeranjang.setValueAt(sub, row, 5);
-                    
-                    transController.hitungTotalBelanja(this);
-                    resetInput();
-                } catch(Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Qty Salah!");
-                }
-            }
-        });
+    int row = tabelKeranjang.getSelectedRow();
+    if (row != -1) {
+        try {
+            int qty = Integer.parseInt(txtQty.getText());
+            double harga = Double.parseDouble(txtHarga.getText());
+            double sub = qty * harga;
+            
+            // Kode yang sudah ada untuk update tabel keranjang
+            modelKeranjang.setValueAt(txtPelanggan.getText(), row, 0);
+            modelKeranjang.setValueAt(qty, row, 4);
+            modelKeranjang.setValueAt(sub, row, 5);
+            
+            transController.hitungTotalBelanja(this);
+            resetInput();
+
+            // --- TAMBAHKAN BARIS INI ---
+            transController.refreshRiwayat(modelRiwayat); 
+            // ---------------------------
+
+        } catch(Exception ex) {
+            JOptionPane.showMessageDialog(this, "Qty Salah!");
+        }
+    }
+});
 
         // 6. Tombol Lain
         btnHapus.addActionListener(e -> transController.hapusItemKeranjang(this));

@@ -20,7 +20,7 @@ public class TransaksiController {
     
     // Panggil DAO agar bisa simpan ke database
     private TransaksiDAO dao = new TransaksiDAO();
-
+    private RiwayatDAO riwayatDao = new RiwayatDAO();
     // --- 1. UTILITIES ---
     
     public String formatRupiah(double number) {
@@ -176,4 +176,7 @@ public class TransaksiController {
         
         view.getLblTotalHarga().setText(formatRupiah(total));
     }
+    public void refreshRiwayat(DefaultTableModel model) {
+    riwayatDao.loadDataKeTabel(model);
+}
 }
