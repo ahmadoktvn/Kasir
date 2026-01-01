@@ -8,7 +8,13 @@ import com.kasir.koneksi.Koneksi;
 import java.sql.*;
 import javax.swing.table.DefaultTableModel;
 
+/**
+ *
+ * @author Ahmad
+ */
+
 public class RiwayatDAO {
+    
     public void loadDataKeTabel(DefaultTableModel modelRiwayat) {
         modelRiwayat.setRowCount(0); 
         try {
@@ -23,9 +29,10 @@ public class RiwayatDAO {
                     r.getString("no_transaksi"),
                     r.getString("tanggal"),
                     r.getString("nama_pelanggan"),
+                    r.getString("metode_pembayaran"),
                     r.getString("nama_menu"),
                     r.getInt("qty"),
-                    r.getDouble("subtotal")
+                    (int) r.getDouble("subtotal") // Casting int
                 });
             }
         } catch (Exception e) {

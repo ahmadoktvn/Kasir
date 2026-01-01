@@ -2,7 +2,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package com.kasir.controller; // Pastikan package ini sesuai struktur folder Anda (biasanya com.kasir.dao)
+package com.kasir.controller;
 
 import com.kasir.koneksi.Koneksi;
 import java.sql.Connection;
@@ -19,42 +19,35 @@ public class TransaksiDAO {
         Connection c = null;
         try {
             c = Koneksi.configDB();
-            c.setAutoCommit(false); // Mode Transaksi: Simpan sekaligus
+            c.setAutoCommit(false); 
 
-            // --- PERUBAHAN 1: SQL menggunakan kolom 'id_menu' ---
-            String sql = "INSERT INTO data_penjualan (no_transaksi, nama_pelanggan, id_menu, harga, qty, subtotal) VALUES (?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO data_penjualan (no_transaksi, nama_pelanggan, id_menu, harga, qty, subtotal, metode_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement p = c.prepareStatement(sql);
 
-            // Looping isi keranjang belanja
             for (int i = 0; i < modelKeranjang.getRowCount(); i++) {
                 
-                // --- PERUBAHAN 2: Mapping Kolom Tabel GUI ---
-                // Asumsi urutan kolom dari Controller nanti adalah:
-                // [0] Pelanggan 
-                // [1] ID MENU (Integer) <--- Kita ambil ini
-                // [2] Nama Menu (String)
-                // [3] Harga
-                // [4] Qty
-                // [5] Subtotal
+                // Urutan di Table Model:
+                // [0] Pel, [1] ID, [2] Mtd, [3] Menu, [4] Hrg, [5] Qty, [6] Sub
                 
-                int idMenu = Integer.parseInt(modelKeranjang.getValueAt(i, 1).toString()); // Ambil ID
-                double harga = Double.parseDouble(modelKeranjang.getValueAt(i, 3).toString());
-                int qty = Integer.parseInt(modelKeranjang.getValueAt(i, 4).toString());
-                double subtotal = Double.parseDouble(modelKeranjang.getValueAt(i, 5).toString());
+                int idMenu = Integer.parseInt(modelKeranjang.getValueAt(i, 1).toString());
+                String metode = modelKeranjang.getValueAt(i, 2).toString(); 
+                double harga = Double.parseDouble(modelKeranjang.getValueAt(i, 4).toString());
+                int qty = Integer.parseInt(modelKeranjang.getValueAt(i, 5).toString());
+                double subtotal = Double.parseDouble(modelKeranjang.getValueAt(i, 6).toString());
 
-                // Set Parameter Query
                 p.setString(1, noTrx);          
-                p.setString(2, namaPelanggan);  
-                p.setInt(3, idMenu);           // Masukkan ID Menu (Int)
+                p.setString(2, namaPelanggan);
+                p.setInt(3, idMenu);            
                 p.setDouble(4, harga);          
                 p.setInt(5, qty);               
                 p.setDouble(6, subtotal);       
+                p.setString(7, metode);
                 
-                p.addBatch(); // Masukkan ke antrian
+                p.addBatch();
             }
             
-            p.executeBatch(); // Eksekusi semua antrian
-            c.commit();       // Simpan permanen ke database
+            p.executeBatch();
+            c.commit();       
             c.setAutoCommit(true);
             return true;
 
