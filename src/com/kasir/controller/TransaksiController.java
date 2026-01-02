@@ -111,33 +111,77 @@ public class TransaksiController {
         }
     }
 
-    public void simpanTransaksi(KasirView view) {
-        if (view.getTabelKeranjang().getRowCount() == 0) {
-            JOptionPane.showMessageDialog(view, "Keranjang belanja kosong!");
+  public void simpanTransaksi(KasirView view) {
+    // 1. Validasi awal
+    if (view.getTabelKeranjang().getRowCount() == 0) {
+        JOptionPane.showMessageDialog(view, "Keranjang belanja kosong!");
+        return;
+    }
+
+    String metode = view.getMetodePembayaran().trim();
+    double totalBelanja = 0;
+    DefaultTableModel model = (DefaultTableModel) view.getTabelKeranjang().getModel();
+
+    // Hitung total belanja dari tabel
+    for (int i = 0; i < model.getRowCount(); i++) {
+        totalBelanja += Double.parseDouble(model.getValueAt(i, 6).toString());
+    }
+
+    String noTrx = view.getTxtNoTransaksi().getText();
+    String namaPel = view.getTxtNamaPelanggan().getText();
+
+    // ================= LOGIKA KHUSUS CASH =================
+    if (metode.equalsIgnoreCase("Cash")) {
+        // Pop-up Input Uang
+        String inputUang = JOptionPane.showInputDialog(view, 
+                "Total Belanja: " + formatRupiah(totalBelanja) + "\nMasukkan Uang Pembayaran:", 
+                "Pembayaran Cash", 
+                JOptionPane.QUESTION_MESSAGE);
+        
+        if (inputUang == null) return; 
+
+        try {
+            String uangBersih = inputUang.replaceAll("[^0-9]", "");
+            double uangDibayar = Double.parseDouble(uangBersih);
+            
+            if (uangDibayar < totalBelanja) {
+                JOptionPane.showMessageDialog(view, "Uang Kurang! Transaksi dibatalkan.");
+                return;
+            }
+            
+            double kembalian = uangDibayar - totalBelanja;
+            JOptionPane.showMessageDialog(view, "Pembayaran Diterima.\nKembalian: " + formatRupiah(kembalian));
+            
+            // Konfirmasi Simpan khusus untuk Cash
+            int confirm = JOptionPane.showConfirmDialog(view, "Simpan Transaksi?", "Konfirmasi", JOptionPane.YES_NO_OPTION);
+            if (confirm != JOptionPane.YES_OPTION) return;
+
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(view, "Input harus berupa angka!");
             return;
         }
-
-        int confirm = JOptionPane.showConfirmDialog(view, "Simpan & Bayar Transaksi?", "Konfirmasi", JOptionPane.YES_NO_OPTION);
-        if (confirm == JOptionPane.YES_OPTION) {
-            
-            String noTrx = view.getTxtNoTransaksi().getText();
-            String namaPel = view.getTxtNamaPelanggan().getText();
-            DefaultTableModel model = (DefaultTableModel) view.getTabelKeranjang().getModel();
-
-            boolean sukses = dao.simpanTransaksi(noTrx, namaPel, model);
-
-            if (sukses) {
-                JOptionPane.showMessageDialog(view, "Transaksi Berhasil Disimpan!");
-                model.setRowCount(0); 
-                view.getTxtNamaPelanggan().setText("");
-                view.getLblTotalHarga().setText("Rp 0");
-                view.getTxtNoTransaksi().setText(generateNoTransaksi()); 
-                refreshRiwayat(view.getModelRiwayat());
-            } else {
-                JOptionPane.showMessageDialog(view, "Gagal Menyimpan Transaksi!");
-            }
-        }
+    } 
+    // ================= LOGIKA KHUSUS KASBON =================
+    else {
+        // Jika Kasbon, tidak ada pop-up input uang dan tidak ada confirm dialog.
+        // Langsung lompat ke proses simpan di bawah.
+        System.out.println("DEBUG: Metode Kasbon, langsung menyimpan...");
     }
+
+    // ================= PROSES SIMPAN (BERLAKU UNTUK KEDUANYA) =================
+    if (dao.simpanTransaksi(noTrx, namaPel, model)) {
+        JOptionPane.showMessageDialog(view, "Transaksi " + metode + " Berhasil Disimpan!");
+        
+        // Bersihkan Form
+        model.setRowCount(0);
+        view.getTxtNamaPelanggan().setText("");
+        view.getLblTotalHarga().setText("Rp 0");
+        view.getTxtNoTransaksi().setText(generateNoTransaksi());
+        refreshRiwayat(view.getModelRiwayat());
+    } else {
+        JOptionPane.showMessageDialog(view, "Gagal menyimpan ke Database!");
+    }
+}
     
     public void hitungTotalBelanja(KasirView view) {
         DefaultTableModel model = (DefaultTableModel) view.getTabelKeranjang().getModel();
