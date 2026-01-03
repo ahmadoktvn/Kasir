@@ -56,4 +56,33 @@ public class MenuDAO {
             return false;
         }
     }
+    
+    // Tambahkan di dalam class MenuDAO
+public void updateMenu(int id, String nama, double harga) {
+    try {
+        Connection c = Koneksi.configDB();
+        PreparedStatement p = c.prepareStatement("UPDATE menu SET nama_menu=?, harga=? WHERE id_menu=?");
+        p.setString(1, nama);
+        p.setDouble(2, harga);
+        p.setInt(3, id);
+        p.execute();
+    } catch (Exception e) { e.printStackTrace(); }
+}
+
+// Di file MenuDAO.java
+
+// Ubah dari void menjadi boolean
+public boolean deleteMenu(int id) {
+    try {
+        Connection c = Koneksi.configDB();
+        String sql = "DELETE FROM menu WHERE id_menu=?";
+        PreparedStatement p = c.prepareStatement(sql);
+        p.setInt(1, id);
+        p.execute();
+        return true; // Berhasil hapus
+    } catch (Exception e) {
+        e.printStackTrace();
+        return false;
+    }
+}
 }

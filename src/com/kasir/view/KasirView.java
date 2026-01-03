@@ -17,9 +17,9 @@ import javax.swing.table.DefaultTableModel;
  *
  * @author Ahmad
  */
-
 public class KasirView extends JFrame {
 
+    // --- KOMPONEN TAB KASIR ---
     private JComboBox<String> cboMenu;
     private JTextField txtHarga, txtQty, txtPelanggan;
     private JLabel lblNoTransaksi, lblTotalHarga, lblSubtotalPreview;
@@ -31,12 +31,16 @@ public class KasirView extends JFrame {
     private JRadioButton rbCash, rbKasbon;
     private ButtonGroup bgMetode;
 
+    // --- KOMPONEN TAB MENU (UPDATE CRUD) ---
+    private JTextField txtNamaMenuBaru, txtHargaMenuBaru;
+    private JLabel lblIdMenuHidden; // Untuk menyimpan ID saat edit
+    private JButton btnSimpanMenu, btnUpdateMenu, btnHapusMenu, btnClearMenu;
+    private JTable tabelMenu;
+    private DefaultTableModel modelMenu;
+
+    // --- KOMPONEN TAB RIWAYAT ---
     private JTable tabelRiwayat;
     private DefaultTableModel modelRiwayat;
-    
-    // Tab Menu
-    private JTextField txtNamaMenuBaru, txtHargaMenuBaru;
-    private JButton btnSimpanMenu;
 
     private MenuDAO menuDAO;
     private TransaksiController transController;
@@ -45,17 +49,20 @@ public class KasirView extends JFrame {
         menuDAO = new MenuDAO();
         transController = new TransaksiController();
         initUI();
-        loadDataMenu();
+        loadDataMenu();      // Load ComboBox Kasir
+        refreshTabelMenu();  // Load Tabel Menu
         lblNoTransaksi.setText(transController.generateNoTransaksi());
     }
 
     private void initUI() {
-        setTitle("Aplikasi Kasir Berelasi");
+        setTitle("Aplikasi Kasir Warung Nasi - Full CRUD");
         setSize(1000, 700); 
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        // --- PANEL INPUT ---
+        // ==========================================
+        // TAB 1: KASIR TRANSAKSI
+        // ==========================================
         JPanel panelInput = new JPanel(new GridLayout(8, 2, 8, 8));
         panelInput.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
@@ -92,19 +99,18 @@ public class KasirView extends JFrame {
         JPanel panelAtas = new JPanel(new BorderLayout());
         panelAtas.add(panelInput, BorderLayout.CENTER);
 
-        // --- TABEL (ID Hidden) ---
+        // Tabel Keranjang
         String[] header = {"Pelanggan", "ID", "Metode", "Menu", "Harga", "Qty", "Subtotal"};
         modelKeranjang = new DefaultTableModel(header, 0) {
             @Override public boolean isCellEditable(int row, int col) { return false; }
         };
         tabelKeranjang = new JTable(modelKeranjang);
         
-        // Sembunyikan Kolom ID (Index 1)
+        // Hide ID Column
         tabelKeranjang.getColumnModel().getColumn(1).setMinWidth(0);
         tabelKeranjang.getColumnModel().getColumn(1).setMaxWidth(0);
         tabelKeranjang.getColumnModel().getColumn(1).setWidth(0);
 
-        // --- BAWAH ---
         lblTotalHarga = new JLabel("Rp 0");
         lblTotalHarga.setFont(new Font("Arial", Font.BOLD, 24));
         lblTotalHarga.setHorizontalAlignment(SwingConstants.RIGHT);
@@ -123,20 +129,44 @@ public class KasirView extends JFrame {
         panelKasir.add(new JScrollPane(tabelKeranjang), BorderLayout.CENTER);
         panelKasir.add(panelBawah, BorderLayout.SOUTH);
 
-        // --- TAB MENU ---
-        JPanel panelMenu = new JPanel(new FlowLayout());
-        txtNamaMenuBaru = new JTextField(15);
-        txtHargaMenuBaru = new JTextField(10);
-        btnSimpanMenu = new JButton("Simpan Menu");
-        panelMenu.add(new JLabel("Menu:")); panelMenu.add(txtNamaMenuBaru);
-        panelMenu.add(new JLabel("Harga:")); panelMenu.add(txtHargaMenuBaru);
-        panelMenu.add(btnSimpanMenu);
+        // ==========================================
+        // TAB 2: KELOLA MENU (FULL CRUD)
+        // ==========================================
+        JPanel panelMenu = new JPanel(new BorderLayout(10, 10));
+        panelMenu.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JTabbedPane tab = new JTabbedPane();
-        tab.add("Kasir", panelKasir);
-        tab.add("Menu", panelMenu);
+        // Form Menu
+        JPanel formMenu = new JPanel(new GridLayout(4, 2, 5, 5));
+        txtNamaMenuBaru = new JTextField();
+        txtHargaMenuBaru = new JTextField();
+        lblIdMenuHidden = new JLabel("-"); lblIdMenuHidden.setVisible(false); // ID Hidden
+
+        btnSimpanMenu = new JButton("Simpan Baru");
+        btnUpdateMenu = new JButton("Update Menu"); btnUpdateMenu.setEnabled(false);
+        btnHapusMenu = new JButton("Hapus Menu"); btnHapusMenu.setEnabled(false);
+        btnClearMenu = new JButton("Clear");
+
+        formMenu.add(new JLabel("Nama Menu:")); formMenu.add(txtNamaMenuBaru);
+        formMenu.add(new JLabel("Harga:")); formMenu.add(txtHargaMenuBaru);
+        formMenu.add(btnSimpanMenu); formMenu.add(btnUpdateMenu);
+        formMenu.add(btnHapusMenu); formMenu.add(btnClearMenu);
         
-        // --- TAB RIWAYAT ---
+        // Tabel Menu
+        String[] headerMenu = {"ID", "Nama Menu", "Harga"};
+        modelMenu = new DefaultTableModel(headerMenu, 0) {
+            @Override public boolean isCellEditable(int row, int col) { return false; }
+        };
+        tabelMenu = new JTable(modelMenu);
+
+        JPanel panelAtasMenu = new JPanel(new BorderLayout());
+        panelAtasMenu.add(formMenu, BorderLayout.NORTH);
+        
+        panelMenu.add(panelAtasMenu, BorderLayout.NORTH);
+        panelMenu.add(new JScrollPane(tabelMenu), BorderLayout.CENTER);
+
+        // ==========================================
+        // TAB 3: RIWAYAT
+        // ==========================================
         JPanel panelRiwayat = new JPanel(new BorderLayout());
         String[] headerRiwayat = {"No Trx", "Tanggal", "Pelanggan", "Metode", "Menu", "Qty", "Total"};
         modelRiwayat = new DefaultTableModel(headerRiwayat, 0);
@@ -148,116 +178,176 @@ public class KasirView extends JFrame {
         panelRiwayat.add(new JScrollPane(tabelRiwayat), BorderLayout.CENTER);
         panelRiwayat.add(btnRefresh, BorderLayout.SOUTH);
 
+        // ADD TABS
+        JTabbedPane tab = new JTabbedPane();
+        tab.add("Kasir", panelKasir);
+        tab.add("Kelola Menu", panelMenu);
         tab.add("Riwayat Transaksi", panelRiwayat);
         add(tab);
 
-        // ================= EVENTS =================
-
-        // 1. Pilih Combo Menu
+        // ==========================================
+        // EVENTS - KASIR
+        // ==========================================
         cboMenu.addActionListener(e -> {
             try {
                 if(cboMenu.getSelectedItem() != null) {
                     String[] s = cboMenu.getSelectedItem().toString().split(":");
-                    txtHarga.setText(s[2]); // Set Harga otomatis
+                    txtHarga.setText(s[2]); 
                     txtQty.requestFocus();
                 }
             } catch(Exception ex){}
         });
 
-        // 2. Hitung Preview saat ketik Qty
         txtQty.addKeyListener(new KeyAdapter() {
             public void keyReleased(KeyEvent e) {
                 transController.hitungPreview(KasirView.this);
             }
         });
 
-        // 3. Tombol Pesan
         btnMasukPesanan.addActionListener(e -> transController.tambahKeKeranjang(this));
 
-        // 4. KLIK TABEL (UPDATE LOGIC 1)
         tabelKeranjang.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
                 int row = tabelKeranjang.getSelectedRow();
                 if (row != -1) {
-                    // Ambil Pelanggan
                     txtPelanggan.setText(modelKeranjang.getValueAt(row, 0).toString());
-                    
-                    // Ambil Metode Bayar & Set Radio Button
                     String mtd = modelKeranjang.getValueAt(row, 2).toString();
-                    if(mtd.equals("Kasbon")) rbKasbon.setSelected(true);
-                    else rbCash.setSelected(true);
-
-                    // Ambil Qty
+                    if(mtd.equals("Kasbon")) rbKasbon.setSelected(true); else rbCash.setSelected(true);
                     txtQty.setText(modelKeranjang.getValueAt(row, 5).toString());
                     
-                    // --- LOGIKA PENTING: Set ComboBox sesuai ID Menu di Tabel ---
                     String idDiTabel = modelKeranjang.getValueAt(row, 1).toString();
-                    
                     for (int i = 0; i < cboMenu.getItemCount(); i++) {
-                        String item = cboMenu.getItemAt(i);
-                        // Cek apakah item dimulai dengan ID yang sama?
-                        if (item.startsWith(idDiTabel + ":")) {
-                            cboMenu.setSelectedIndex(i);
-                            break;
+                        if (cboMenu.getItemAt(i).startsWith(idDiTabel + ":")) {
+                            cboMenu.setSelectedIndex(i); break;
                         }
                     }
-                    // -------------------------------------------------------------
-
-                    btnUpdate.setEnabled(true);
-                    btnMasukPesanan.setEnabled(false);
+                    btnUpdate.setEnabled(true); btnMasukPesanan.setEnabled(false);
                 }
             }
         });
 
-        // 5. TOMBOL UPDATE (UPDATE LOGIC 2)
         btnUpdate.addActionListener(e -> {
             int row = tabelKeranjang.getSelectedRow();
             if (row != -1) {
                 try {
-                    // Ambil Data BARU dari Form (Mungkin user ganti Menu/Pelanggan/Metode)
                     String rawCombo = cboMenu.getSelectedItem().toString();
                     String[] split = rawCombo.split(":");
                     
                     int idMenuBaru = Integer.parseInt(split[0]);
                     String namaMenuBaru = split[1];
                     double hargaBaru = Double.parseDouble(split[2]);
-                    
                     int qtyBaru = Integer.parseInt(txtQty.getText());
                     double subtotalBaru = hargaBaru * qtyBaru;
                     
-                    // UPDATE SEMUA KOLOM DI TABEL
-                    modelKeranjang.setValueAt(txtPelanggan.getText(), row, 0); // Pelanggan
-                    modelKeranjang.setValueAt(idMenuBaru, row, 1);             // ID Menu (PENTING!)
-                    modelKeranjang.setValueAt(getMetodePembayaran(), row, 2);  // Metode
-                    modelKeranjang.setValueAt(namaMenuBaru, row, 3);           // Nama Menu
-                    modelKeranjang.setValueAt((int)hargaBaru, row, 4);         // Harga (Int)
-                    modelKeranjang.setValueAt(qtyBaru, row, 5);                // Qty
-                    modelKeranjang.setValueAt((int)subtotalBaru, row, 6);      // Subtotal (Int)
+                    modelKeranjang.setValueAt(txtPelanggan.getText(), row, 0);
+                    modelKeranjang.setValueAt(idMenuBaru, row, 1);
+                    modelKeranjang.setValueAt(getMetodePembayaran(), row, 2);
+                    modelKeranjang.setValueAt(namaMenuBaru, row, 3);
+                    modelKeranjang.setValueAt((int)hargaBaru, row, 4);
+                    modelKeranjang.setValueAt(qtyBaru, row, 5);
+                    modelKeranjang.setValueAt((int)subtotalBaru, row, 6);
                     
-                    // Hitung Ulang Total
                     transController.hitungTotalBelanja(this);
                     resetInput();
-                    
                     JOptionPane.showMessageDialog(this, "Data Berhasil Diupdate!");
-
                 } catch(Exception ex) {
                     JOptionPane.showMessageDialog(this, "Gagal Update: " + ex.getMessage());
                 }
             }
         });
 
-        // 6. Tombol Lainnya
         btnHapus.addActionListener(e -> transController.hapusItemKeranjang(this));
         btnBayar.addActionListener(e -> transController.simpanTransaksi(this));
+
+        // ==========================================
+        // EVENTS - KELOLA MENU (CRUD)
+        // ==========================================
         
-        btnSimpanMenu.addActionListener(e -> {
-            menuDAO.tambahMenu(txtNamaMenuBaru.getText(), Double.parseDouble(txtHargaMenuBaru.getText()));
-            loadDataMenu();
-            txtNamaMenuBaru.setText(""); txtHargaMenuBaru.setText("");
-            JOptionPane.showMessageDialog(this, "Menu Disimpan");
+        // 1. KLIK TABEL MENU -> ISI FORM
+        tabelMenu.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) {
+                int row = tabelMenu.getSelectedRow();
+                if (row != -1) {
+                    lblIdMenuHidden.setText(modelMenu.getValueAt(row, 0).toString());
+                    txtNamaMenuBaru.setText(modelMenu.getValueAt(row, 1).toString());
+                    txtHargaMenuBaru.setText(modelMenu.getValueAt(row, 2).toString());
+                    
+                    btnSimpanMenu.setEnabled(false);
+                    btnUpdateMenu.setEnabled(true);
+                    btnHapusMenu.setEnabled(true);
+                }
+            }
         });
+
+        // 2. SIMPAN MENU BARU
+        btnSimpanMenu.addActionListener(e -> {
+            try {
+                String nama = txtNamaMenuBaru.getText();
+                double harga = Double.parseDouble(txtHargaMenuBaru.getText());
+                if (!nama.isEmpty()) {
+                    menuDAO.tambahMenu(nama, harga);
+                    loadAllData();
+                    clearFormMenu();
+                    JOptionPane.showMessageDialog(this, "Menu Ditambah!");
+                }
+            } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Harga harus angka!"); }
+        });
+
+        // 3. UPDATE MENU
+        btnUpdateMenu.addActionListener(e -> {
+            try {
+                int id = Integer.parseInt(lblIdMenuHidden.getText());
+                String nama = txtNamaMenuBaru.getText();
+                double harga = Double.parseDouble(txtHargaMenuBaru.getText());
+                
+                menuDAO.updateMenu(id, nama, harga);
+                loadAllData();
+                clearFormMenu();
+                JOptionPane.showMessageDialog(this, "Menu Diupdate!");
+            } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Gagal Update!"); }
+        });
+
+        // 4. HAPUS MENU
+       // Di dalam initUI() KasirView.java
+
+        // 4. HAPUS MENU (REVISI)
+        btnHapusMenu.addActionListener(e -> {
+            try {
+                // Cek apakah ada ID yang dipilih (bukan tanda "-")
+                if (lblIdMenuHidden.getText().equals("-")) {
+                    JOptionPane.showMessageDialog(this, "Pilih menu dari tabel dulu!");
+                    return;
+                }
+
+                int id = Integer.parseInt(lblIdMenuHidden.getText());
+                int confirm = JOptionPane.showConfirmDialog(this, "Yakin hapus menu ini?");
+                
+                if (confirm == JOptionPane.YES_OPTION) {
+                    // Panggil DAO dan tampung hasilnya (Sukses/Gagal)
+                    boolean sukses = menuDAO.deleteMenu(id);
+                    
+                    if (sukses) {
+                        loadAllData();
+                        clearFormMenu();
+                        JOptionPane.showMessageDialog(this, "Menu Berhasil Dihapus!");
+                    } else {
+                        // Muncul jika kena Foreign Key Constraint
+                        JOptionPane.showMessageDialog(this, 
+                            "GAGAL MENGHAPUS!\n\n" +
+                            "Menu ini sudah pernah terjual dan tercatat di riwayat transaksi." +
+                            JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+            }
+        });
+        // 5. CLEAR FORM
+        btnClearMenu.addActionListener(e -> clearFormMenu());
     }
 
+    // --- HELPER METHODS ---
+    
     private void resetInput() {
         txtQty.setText("");
         lblSubtotalPreview.setText("Rp 0");
@@ -266,11 +356,34 @@ public class KasirView extends JFrame {
         tabelKeranjang.clearSelection();
     }
 
+    private void clearFormMenu() {
+        txtNamaMenuBaru.setText("");
+        txtHargaMenuBaru.setText("");
+        lblIdMenuHidden.setText("-");
+        btnSimpanMenu.setEnabled(true);
+        btnUpdateMenu.setEnabled(false);
+        btnHapusMenu.setEnabled(false);
+        tabelMenu.clearSelection();
+    }
+
+    private void loadAllData() {
+        loadDataMenu();      // Refresh ComboBox Kasir
+        refreshTabelMenu();  // Refresh Tabel Menu
+    }
+
     private void loadDataMenu() {
         cboMenu.removeAllItems();
         List<Menu> list = menuDAO.getAllMenu();
         for(Menu m : list) {
             cboMenu.addItem(m.getId() + ":" + m.getNama() + ":" + (int)m.getHarga());
+        }
+    }
+    
+    private void refreshTabelMenu() {
+        modelMenu.setRowCount(0);
+        List<Menu> list = menuDAO.getAllMenu();
+        for(Menu m : list) {
+            modelMenu.addRow(new Object[]{m.getId(), m.getNama(), (int)m.getHarga()});
         }
     }
 
@@ -289,4 +402,5 @@ public class KasirView extends JFrame {
         if (rbKasbon.isSelected()) return "Kasbon";
         return "Cash";
     }
+    
 }
