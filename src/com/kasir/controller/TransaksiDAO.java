@@ -15,19 +15,18 @@ import javax.swing.table.DefaultTableModel;
  */
 public class TransaksiDAO {
 
-    public boolean simpanTransaksi(String noTrx, String namaPelanggan, DefaultTableModel modelKeranjang) {
+    // UPDATE: Menambahkan parameter idVoucher (Bisa NULL)
+    public boolean simpanTransaksi(String noTrx, String namaPelanggan, DefaultTableModel modelKeranjang, Integer idVoucher) {
         Connection c = null;
         try {
             c = Koneksi.configDB();
             c.setAutoCommit(false); 
 
-            String sql = "INSERT INTO data_penjualan (no_transaksi, nama_pelanggan, id_menu, harga, qty, subtotal, metode_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            // SQL Update: Menambahkan kolom id_voucher
+            String sql = "INSERT INTO data_penjualan (no_transaksi, nama_pelanggan, id_menu, harga, qty, subtotal, metode_pembayaran, id_voucher) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement p = c.prepareStatement(sql);
 
             for (int i = 0; i < modelKeranjang.getRowCount(); i++) {
-                
-                // Urutan di Table Model:
-                // [0] Pel, [1] ID, [2] Mtd, [3] Menu, [4] Hrg, [5] Qty, [6] Sub
                 
                 int idMenu = Integer.parseInt(modelKeranjang.getValueAt(i, 1).toString());
                 String metode = modelKeranjang.getValueAt(i, 2).toString(); 
@@ -42,6 +41,13 @@ public class TransaksiDAO {
                 p.setInt(5, qty);               
                 p.setDouble(6, subtotal);       
                 p.setString(7, metode);
+                
+                // Set id_voucher (Jika null, setNull di SQL)
+                if (idVoucher == null) {
+                    p.setNull(8, java.sql.Types.INTEGER);
+                } else {
+                    p.setInt(8, idVoucher);
+                }
                 
                 p.addBatch();
             }
