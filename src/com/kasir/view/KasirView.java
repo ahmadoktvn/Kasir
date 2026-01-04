@@ -6,6 +6,8 @@ package com.kasir.view;
 
 import com.kasir.controller.MenuDAO;
 import com.kasir.controller.TransaksiController;
+import com.kasir.controller.VoucherDAO;  // Import DAO
+import com.kasir.model.Voucher;
 import com.kasir.model.Menu;
 import java.awt.*;
 import java.awt.event.*;
@@ -23,40 +25,61 @@ public class KasirView extends JFrame {
     private JComboBox<String> cboMenu;
     private JTextField txtHarga, txtQty, txtPelanggan;
     private JLabel lblNoTransaksi, lblTotalHarga, lblSubtotalPreview;
+    
+    // Komponen Voucher di Kasir
+    private JTextField txtInputVoucher;
+    private JButton btnCekVoucher;
+    private JLabel lblInfoDiskon;
+    private Voucher currentVoucher = null; 
+    
     private JTable tabelKeranjang;
     private DefaultTableModel modelKeranjang;
     private JButton btnMasukPesanan, btnUpdate, btnHapus, btnBayar;
 
-    // Radio Button
     private JRadioButton rbCash, rbKasbon;
     private ButtonGroup bgMetode;
 
-    // --- KOMPONEN TAB MENU (UPDATE CRUD) ---
+    // --- KOMPONEN TAB MENU (CRUD) ---
     private JTextField txtNamaMenuBaru, txtHargaMenuBaru;
-    private JLabel lblIdMenuHidden; // Untuk menyimpan ID saat edit
+    private JLabel lblIdMenuHidden;
     private JButton btnSimpanMenu, btnUpdateMenu, btnHapusMenu, btnClearMenu;
     private JTable tabelMenu;
     private DefaultTableModel modelMenu;
+    
+    // --- KOMPONEN TAB VOUCHER (CRUD) ---
+    private JTextField txtKodeVoucherCRUD, txtPotonganCRUD;
+    private JComboBox<String> cbStatusVoucher;
+    private JTable tabelVoucher;
+    private DefaultTableModel modelVoucher;
+    private JLabel lblIdVoucherHidden;
+    private JButton btnSimpanVoucher, btnUpdateVoucher, btnHapusVoucher, btnClearVoucher;
 
     // --- KOMPONEN TAB RIWAYAT ---
     private JTable tabelRiwayat;
     private DefaultTableModel modelRiwayat;
+    private JButton btnCetakPDF; // Tombol Baru untuk PDF
 
+    // --- CONTROLLERS & DAO ---
     private MenuDAO menuDAO;
     private TransaksiController transController;
+    private VoucherDAO voucherDAO;
 
     public KasirView() {
         menuDAO = new MenuDAO();
         transController = new TransaksiController();
+        voucherDAO = new VoucherDAO();
+        
         initUI();
-        loadDataMenu();      // Load ComboBox Kasir
-        refreshTabelMenu();  // Load Tabel Menu
+        
+        loadDataMenu();      
+        refreshTabelMenu();  
+        refreshTabelVoucher();
         lblNoTransaksi.setText(transController.generateNoTransaksi());
     }
 
     private void initUI() {
-        setTitle("Aplikasi Kasir Warung Nasi - Full CRUD");
-        setSize(1000, 700); 
+        setTitle("Aplikasi Kasir Warung Nasi - Full Features");
+        setSize(1100, 750);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -111,18 +134,39 @@ public class KasirView extends JFrame {
         tabelKeranjang.getColumnModel().getColumn(1).setMaxWidth(0);
         tabelKeranjang.getColumnModel().getColumn(1).setWidth(0);
 
-        lblTotalHarga = new JLabel("Rp 0");
+        // --- BAGIAN BAWAH (TOTAL & VOUCHER) ---
+        JPanel panelBawah = new JPanel(new BorderLayout());
+        
+        // Area Voucher Input
+        JPanel panelVoucherArea = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        txtInputVoucher = new JTextField(10);
+        btnCekVoucher = new JButton("Gunakan Kode");
+        lblInfoDiskon = new JLabel("Diskon: Rp 0");
+        lblInfoDiskon.setForeground(new Color(0, 150, 0)); 
+        
+        panelVoucherArea.add(new JLabel("Kode Voucher:"));
+        panelVoucherArea.add(txtInputVoucher);
+        panelVoucherArea.add(btnCekVoucher);
+        panelVoucherArea.add(Box.createHorizontalStrut(10));
+        panelVoucherArea.add(lblInfoDiskon);
+
+        lblTotalHarga = new JLabel("Total: Rp 0");
         lblTotalHarga.setFont(new Font("Arial", Font.BOLD, 24));
         lblTotalHarga.setHorizontalAlignment(SwingConstants.RIGHT);
         
-        JPanel panelBawah = new JPanel(new BorderLayout());
-        JPanel btnBawah = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        btnHapus = new JButton("Hapus");
-        btnBayar = new JButton("Bayar");
-        btnBawah.add(btnHapus); btnBawah.add(btnBayar);
+        JPanel panelKiriBawah = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        btnHapus = new JButton("Hapus Item");
+        btnBayar = new JButton("BAYAR SEKARANG");
+        btnBayar.setFont(new Font("Arial", Font.BOLD, 14));
+        panelKiriBawah.add(btnHapus); panelKiriBawah.add(btnBayar);
         
-        panelBawah.add(btnBawah, BorderLayout.WEST);
-        panelBawah.add(lblTotalHarga, BorderLayout.CENTER);
+        JPanel panelFooterKanan = new JPanel(new GridLayout(2, 1));
+        panelFooterKanan.add(panelVoucherArea);
+        panelFooterKanan.add(lblTotalHarga);
+        
+        panelBawah.add(panelKiriBawah, BorderLayout.WEST);
+        panelBawah.add(panelFooterKanan, BorderLayout.EAST);
+        panelBawah.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         JPanel panelKasir = new JPanel(new BorderLayout());
         panelKasir.add(panelAtas, BorderLayout.NORTH);
@@ -130,16 +174,15 @@ public class KasirView extends JFrame {
         panelKasir.add(panelBawah, BorderLayout.SOUTH);
 
         // ==========================================
-        // TAB 2: KELOLA MENU (FULL CRUD)
+        // TAB 2: KELOLA MENU
         // ==========================================
         JPanel panelMenu = new JPanel(new BorderLayout(10, 10));
         panelMenu.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // Form Menu
         JPanel formMenu = new JPanel(new GridLayout(4, 2, 5, 5));
         txtNamaMenuBaru = new JTextField();
         txtHargaMenuBaru = new JTextField();
-        lblIdMenuHidden = new JLabel("-"); lblIdMenuHidden.setVisible(false); // ID Hidden
+        lblIdMenuHidden = new JLabel("-"); lblIdMenuHidden.setVisible(false);
 
         btnSimpanMenu = new JButton("Simpan Baru");
         btnUpdateMenu = new JButton("Update Menu"); btnUpdateMenu.setEnabled(false);
@@ -151,7 +194,6 @@ public class KasirView extends JFrame {
         formMenu.add(btnSimpanMenu); formMenu.add(btnUpdateMenu);
         formMenu.add(btnHapusMenu); formMenu.add(btnClearMenu);
         
-        // Tabel Menu
         String[] headerMenu = {"ID", "Nama Menu", "Harga"};
         modelMenu = new DefaultTableModel(headerMenu, 0) {
             @Override public boolean isCellEditable(int row, int col) { return false; }
@@ -160,29 +202,78 @@ public class KasirView extends JFrame {
 
         JPanel panelAtasMenu = new JPanel(new BorderLayout());
         panelAtasMenu.add(formMenu, BorderLayout.NORTH);
-        
         panelMenu.add(panelAtasMenu, BorderLayout.NORTH);
         panelMenu.add(new JScrollPane(tabelMenu), BorderLayout.CENTER);
 
         // ==========================================
-        // TAB 3: RIWAYAT
+        // TAB 3: RIWAYAT (UPDATE DENGAN TOMBOL PDF)
         // ==========================================
         JPanel panelRiwayat = new JPanel(new BorderLayout());
-        String[] headerRiwayat = {"No Trx", "Tanggal", "Pelanggan", "Metode", "Menu", "Qty", "Total"};
+        
+        // Header Tabel (9 Kolom)
+        String[] headerRiwayat = {
+            "No Trx", "Tanggal", "Pelanggan", "Metode", 
+            "Menu", "Qty", "Subtotal", "Diskon", "Total"
+        };
+        
         modelRiwayat = new DefaultTableModel(headerRiwayat, 0);
         tabelRiwayat = new JTable(modelRiwayat);
 
+        // --- PANEL TOMBOL DI BAWAH ---
+        JPanel panelBawahRiwayat = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        
         JButton btnRefresh = new JButton("Refresh Riwayat");
-        btnRefresh.addActionListener(e -> transController.refreshRiwayat(modelRiwayat));
+        btnCetakPDF = new JButton("Cetak Laporan PDF"); // Tombol Baru
+        
+        panelBawahRiwayat.add(btnRefresh);
+        panelBawahRiwayat.add(btnCetakPDF); // Masukkan tombol ke panel
 
         panelRiwayat.add(new JScrollPane(tabelRiwayat), BorderLayout.CENTER);
-        panelRiwayat.add(btnRefresh, BorderLayout.SOUTH);
+        panelRiwayat.add(panelBawahRiwayat, BorderLayout.SOUTH);
+
+        // ==========================================
+        // TAB 4: KELOLA VOUCHER (UPDATE CRUD)
+        // ==========================================
+        JPanel panelVoucher = new JPanel(new BorderLayout(10, 10));
+        panelVoucher.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JPanel formVoucher = new JPanel(new GridLayout(5, 2, 5, 5));
+        
+        txtKodeVoucherCRUD = new JTextField();
+        txtPotonganCRUD = new JTextField();
+        String[] statusOpsi = {"Aktif", "Tidak Aktif"};
+        cbStatusVoucher = new JComboBox<>(statusOpsi);
+        lblIdVoucherHidden = new JLabel("-"); lblIdVoucherHidden.setVisible(false);
+        
+        btnSimpanVoucher = new JButton("Simpan Voucher");
+        btnUpdateVoucher = new JButton("Update Voucher"); btnUpdateVoucher.setEnabled(false);
+        btnHapusVoucher = new JButton("Hapus Voucher"); btnHapusVoucher.setEnabled(false);
+        btnClearVoucher = new JButton("Clear / Batal");
+
+        formVoucher.add(new JLabel("Kode Voucher:")); formVoucher.add(txtKodeVoucherCRUD);
+        formVoucher.add(new JLabel("Nominal (Rp):")); formVoucher.add(txtPotonganCRUD);
+        formVoucher.add(new JLabel("Status:")); formVoucher.add(cbStatusVoucher);
+        formVoucher.add(btnSimpanVoucher); formVoucher.add(btnUpdateVoucher);
+        formVoucher.add(btnHapusVoucher); formVoucher.add(btnClearVoucher);
+        panelVoucher.add(lblIdVoucherHidden, BorderLayout.SOUTH);
+
+        String[] headerVoucher = {"ID", "Kode", "Potongan", "Status"};
+        modelVoucher = new DefaultTableModel(headerVoucher, 0) {
+             @Override public boolean isCellEditable(int row, int col) { return false; }
+        };
+        tabelVoucher = new JTable(modelVoucher);
+
+        JPanel panelAtasVoucher = new JPanel(new BorderLayout());
+        panelAtasVoucher.add(formVoucher, BorderLayout.NORTH);
+        panelVoucher.add(panelAtasVoucher, BorderLayout.NORTH);
+        panelVoucher.add(new JScrollPane(tabelVoucher), BorderLayout.CENTER);
 
         // ADD TABS
         JTabbedPane tab = new JTabbedPane();
         tab.add("Kasir", panelKasir);
         tab.add("Kelola Menu", panelMenu);
         tab.add("Riwayat Transaksi", panelRiwayat);
+        tab.add("Kelola Voucher", panelVoucher);
         add(tab);
 
         // ==========================================
@@ -204,7 +295,7 @@ public class KasirView extends JFrame {
             }
         });
 
-        btnMasukPesanan.addActionListener(e -> transController.tambahKeKeranjang(this));
+        btnMasukPesanan.addActionListener(e -> transController.tambahKeKeranjang(this, currentVoucher));
 
         tabelKeranjang.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
@@ -247,7 +338,7 @@ public class KasirView extends JFrame {
                     modelKeranjang.setValueAt(qtyBaru, row, 5);
                     modelKeranjang.setValueAt((int)subtotalBaru, row, 6);
                     
-                    transController.hitungTotalBelanja(this);
+                    transController.hitungTotalBelanja(this, currentVoucher);
                     resetInput();
                     JOptionPane.showMessageDialog(this, "Data Berhasil Diupdate!");
                 } catch(Exception ex) {
@@ -256,14 +347,56 @@ public class KasirView extends JFrame {
             }
         });
 
-        btnHapus.addActionListener(e -> transController.hapusItemKeranjang(this));
-        btnBayar.addActionListener(e -> transController.simpanTransaksi(this));
+        btnHapus.addActionListener(e -> {
+            transController.hapusItemKeranjang(this, currentVoucher);
+        });
+        
+        ActionListener metodeListener = e -> {
+            if (rbKasbon.isSelected()) {
+                currentVoucher = null;
+                txtInputVoucher.setText("");
+                txtInputVoucher.setEnabled(false);
+                btnCekVoucher.setEnabled(false);
+                lblInfoDiskon.setText("Diskon: Tidak tersedia untuk Kasbon");
+            } else {
+                txtInputVoucher.setEnabled(true);
+                btnCekVoucher.setEnabled(true);
+                lblInfoDiskon.setText("Diskon: Rp 0");
+            }
+            transController.hitungTotalBelanja(this, currentVoucher);
+        };
+        rbCash.addActionListener(metodeListener);
+        rbKasbon.addActionListener(metodeListener);
+
+        btnCekVoucher.addActionListener(e -> {
+            if (rbKasbon.isSelected()) {
+                JOptionPane.showMessageDialog(this, "Voucher tidak bisa dipakai untuk Kasbon!");
+                return;
+            }
+            String inputKode = txtInputVoucher.getText().trim();
+            if(inputKode.isEmpty()) {
+                currentVoucher = null; 
+                lblInfoDiskon.setText("Diskon: Rp 0");
+            } else {
+                Voucher v = voucherDAO.cekVoucherValid(inputKode);
+                if (v != null) {
+                    currentVoucher = v; 
+                    lblInfoDiskon.setText("Diskon: " + transController.formatRupiah(v.getPotongan()) + " (" + v.getKode() + ")");
+                    JOptionPane.showMessageDialog(this, "Voucher Diterapkan!");
+                } else {
+                    currentVoucher = null;
+                    lblInfoDiskon.setText("Voucher Tidak Valid!");
+                    JOptionPane.showMessageDialog(this, "Kode Voucher Salah / Tidak Aktif!");
+                }
+            }
+            transController.hitungTotalBelanja(this, currentVoucher);
+        });
+
+        btnBayar.addActionListener(e -> transController.simpanTransaksi(this, currentVoucher));
 
         // ==========================================
-        // EVENTS - KELOLA MENU (CRUD)
+        // EVENTS - KELOLA MENU
         // ==========================================
-        
-        // 1. KLIK TABEL MENU -> ISI FORM
         tabelMenu.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
                 int row = tabelMenu.getSelectedRow();
@@ -271,84 +404,131 @@ public class KasirView extends JFrame {
                     lblIdMenuHidden.setText(modelMenu.getValueAt(row, 0).toString());
                     txtNamaMenuBaru.setText(modelMenu.getValueAt(row, 1).toString());
                     txtHargaMenuBaru.setText(modelMenu.getValueAt(row, 2).toString());
-                    
                     btnSimpanMenu.setEnabled(false);
-                    btnUpdateMenu.setEnabled(true);
-                    btnHapusMenu.setEnabled(true);
+                    btnUpdateMenu.setEnabled(true); btnHapusMenu.setEnabled(true);
                 }
             }
         });
 
-        // 2. SIMPAN MENU BARU
         btnSimpanMenu.addActionListener(e -> {
             try {
                 String nama = txtNamaMenuBaru.getText();
                 double harga = Double.parseDouble(txtHargaMenuBaru.getText());
                 if (!nama.isEmpty()) {
                     menuDAO.tambahMenu(nama, harga);
-                    loadAllData();
-                    clearFormMenu();
+                    loadAllData(); clearFormMenu();
                     JOptionPane.showMessageDialog(this, "Menu Ditambah!");
                 }
             } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Harga harus angka!"); }
         });
 
-        // 3. UPDATE MENU
         btnUpdateMenu.addActionListener(e -> {
             try {
                 int id = Integer.parseInt(lblIdMenuHidden.getText());
                 String nama = txtNamaMenuBaru.getText();
                 double harga = Double.parseDouble(txtHargaMenuBaru.getText());
-                
                 menuDAO.updateMenu(id, nama, harga);
-                loadAllData();
-                clearFormMenu();
+                loadAllData(); clearFormMenu();
                 JOptionPane.showMessageDialog(this, "Menu Diupdate!");
             } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Gagal Update!"); }
         });
 
-        // 4. HAPUS MENU
-       // Di dalam initUI() KasirView.java
-
-        // 4. HAPUS MENU (REVISI)
         btnHapusMenu.addActionListener(e -> {
             try {
-                // Cek apakah ada ID yang dipilih (bukan tanda "-")
-                if (lblIdMenuHidden.getText().equals("-")) {
-                    JOptionPane.showMessageDialog(this, "Pilih menu dari tabel dulu!");
-                    return;
-                }
-
+                if (lblIdMenuHidden.getText().equals("-")) return;
                 int id = Integer.parseInt(lblIdMenuHidden.getText());
-                int confirm = JOptionPane.showConfirmDialog(this, "Yakin hapus menu ini?");
-                
-                if (confirm == JOptionPane.YES_OPTION) {
-                    // Panggil DAO dan tampung hasilnya (Sukses/Gagal)
-                    boolean sukses = menuDAO.deleteMenu(id);
-                    
-                    if (sukses) {
-                        loadAllData();
-                        clearFormMenu();
-                        JOptionPane.showMessageDialog(this, "Menu Berhasil Dihapus!");
+                if (JOptionPane.showConfirmDialog(this, "Hapus menu ini?") == JOptionPane.YES_OPTION) {
+                    if (menuDAO.deleteMenu(id)) {
+                        loadAllData(); clearFormMenu();
+                        JOptionPane.showMessageDialog(this, "Menu Dihapus!");
                     } else {
-                        // Muncul jika kena Foreign Key Constraint
-                        JOptionPane.showMessageDialog(this, 
-                            "GAGAL MENGHAPUS!\n\n" +
-                            "Menu ini sudah pernah terjual dan tercatat di riwayat transaksi." +
-                            JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(this, "Gagal! Menu sudah ada di riwayat transaksi.");
                     }
                 }
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+            } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage()); }
+        });
+
+        btnClearMenu.addActionListener(e -> clearFormMenu());
+        
+        // ==========================================
+        // EVENTS - KELOLA VOUCHER (FULL CRUD)
+        // ==========================================
+        tabelVoucher.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) {
+                int row = tabelVoucher.getSelectedRow();
+                if(row != -1) {
+                    lblIdVoucherHidden.setText(modelVoucher.getValueAt(row, 0).toString());
+                    txtKodeVoucherCRUD.setText(modelVoucher.getValueAt(row, 1).toString());
+                    txtPotonganCRUD.setText(modelVoucher.getValueAt(row, 2).toString());
+                    cbStatusVoucher.setSelectedItem(modelVoucher.getValueAt(row, 3).toString());
+                    
+                    btnSimpanVoucher.setEnabled(false);
+                    btnUpdateVoucher.setEnabled(true);
+                    btnHapusVoucher.setEnabled(true);
+                }
             }
         });
-        // 5. CLEAR FORM
-        btnClearMenu.addActionListener(e -> clearFormMenu());
+
+        btnSimpanVoucher.addActionListener(e -> {
+            try {
+                String kode = txtKodeVoucherCRUD.getText().trim().toUpperCase();
+                String potStr = txtPotonganCRUD.getText().trim();
+                if(kode.isEmpty() || potStr.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Isi data dengan lengkap!"); return;
+                }
+                double pot = Double.parseDouble(potStr);
+                
+                if(voucherDAO.tambahVoucher(kode, pot)) {
+                    JOptionPane.showMessageDialog(this, "Voucher Disimpan!");
+                    refreshTabelVoucher(); clearFormVoucher();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Gagal! Kode Voucher mungkin sudah ada.");
+                }
+            } catch(NumberFormatException ex) { JOptionPane.showMessageDialog(this, "Potongan harus angka!"); }
+        });
+
+        btnUpdateVoucher.addActionListener(e -> {
+            try {
+                int id = Integer.parseInt(lblIdVoucherHidden.getText());
+                String kode = txtKodeVoucherCRUD.getText().trim().toUpperCase();
+                double pot = Double.parseDouble(txtPotonganCRUD.getText().trim());
+                String status = cbStatusVoucher.getSelectedItem().toString();
+                
+                if(voucherDAO.updateVoucher(id, kode, pot, status)) {
+                    JOptionPane.showMessageDialog(this, "Voucher Berhasil Diupdate!");
+                    refreshTabelVoucher(); clearFormVoucher();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Gagal Update!");
+                }
+            } catch(Exception ex) { JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage()); }
+        });
+        
+        btnHapusVoucher.addActionListener(e -> {
+            if(lblIdVoucherHidden.getText().equals("-")) return;
+            int confirm = JOptionPane.showConfirmDialog(this, "Yakin hapus voucher ini?");
+            if(confirm == JOptionPane.YES_OPTION) {
+                int id = Integer.parseInt(lblIdVoucherHidden.getText());
+                if(voucherDAO.hapusVoucher(id)) {
+                    JOptionPane.showMessageDialog(this, "Voucher Dihapus!");
+                    refreshTabelVoucher(); clearFormVoucher();
+                }
+            }
+        });
+        
+        btnClearVoucher.addActionListener(e -> clearFormVoucher());
+        
+        // ==========================================
+        // EVENTS - RIWAYAT & PDF
+        // ==========================================
+        btnRefresh.addActionListener(e -> transController.refreshRiwayat(modelRiwayat));
+        
+        // Event Listener untuk Tombol PDF
+        btnCetakPDF.addActionListener(e -> transController.cetakLaporanPDF(this));
     }
 
     // --- HELPER METHODS ---
     
-    private void resetInput() {
+    public void resetInput() { // PUBLIC agar bisa dipanggil controller
         txtQty.setText("");
         lblSubtotalPreview.setText("Rp 0");
         btnUpdate.setEnabled(false);
@@ -356,7 +536,7 @@ public class KasirView extends JFrame {
         tabelKeranjang.clearSelection();
     }
 
-    private void clearFormMenu() {
+    public void clearFormMenu() { 
         txtNamaMenuBaru.setText("");
         txtHargaMenuBaru.setText("");
         lblIdMenuHidden.setText("-");
@@ -365,10 +545,34 @@ public class KasirView extends JFrame {
         btnHapusMenu.setEnabled(false);
         tabelMenu.clearSelection();
     }
+    
+    private void clearFormVoucher() {
+        txtKodeVoucherCRUD.setText("");
+        txtPotonganCRUD.setText("");
+        cbStatusVoucher.setSelectedIndex(0);
+        lblIdVoucherHidden.setText("-");
+        btnSimpanVoucher.setEnabled(true);
+        btnUpdateVoucher.setEnabled(false);
+        btnHapusVoucher.setEnabled(false);
+        tabelVoucher.clearSelection();
+    }
+    
+    public void resetFormKasir() {
+        modelKeranjang.setRowCount(0);
+        txtPelanggan.setText("");
+        lblTotalHarga.setText("Rp 0");
+        lblInfoDiskon.setText("Diskon: Rp 0");
+        txtInputVoucher.setText("");
+        currentVoucher = null; 
+        lblNoTransaksi.setText(transController.generateNoTransaksi());
+        
+        // PENTING: Reset tombol Pesan agar nyala lagi
+        resetInput();
+    }
 
     private void loadAllData() {
-        loadDataMenu();      // Refresh ComboBox Kasir
-        refreshTabelMenu();  // Refresh Tabel Menu
+        loadDataMenu();      
+        refreshTabelMenu();  
     }
 
     private void loadDataMenu() {
@@ -384,6 +588,14 @@ public class KasirView extends JFrame {
         List<Menu> list = menuDAO.getAllMenu();
         for(Menu m : list) {
             modelMenu.addRow(new Object[]{m.getId(), m.getNama(), (int)m.getHarga()});
+        }
+    }
+    
+    private void refreshTabelVoucher() {
+        modelVoucher.setRowCount(0);
+        List<Voucher> list = voucherDAO.getAllVoucher();
+        for(Voucher v : list) {
+            modelVoucher.addRow(new Object[]{v.getId(), v.getKode(), (int)v.getPotongan(), v.getStatus()});
         }
     }
 
@@ -402,5 +614,4 @@ public class KasirView extends JFrame {
         if (rbKasbon.isSelected()) return "Kasbon";
         return "Cash";
     }
-    
 }

@@ -6,6 +6,17 @@ package com.kasir.controller;
 
 import com.kasir.controller.TransaksiDAO;
 import com.kasir.view.KasirView; 
+import com.kasir.model.Voucher;
+
+import com.itextpdf.text.Document;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.Phrase;
+import com.itextpdf.text.pdf.PdfPCell;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
+import java.io.FileOutputStream;
+import javax.swing.JFileChooser;
+
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -51,13 +62,35 @@ public class TransaksiController {
         }
     }
 
-    public void tambahKeKeranjang(KasirView view) {
+    public void hitungTotalBelanja(KasirView view, Voucher currentVoucher) {
+        DefaultTableModel model = (DefaultTableModel) view.getTabelKeranjang().getModel();
+        double totalBelanja = 0;
+        
+        for (int i = 0; i < model.getRowCount(); i++) {
+            Object nilai = model.getValueAt(i, 6); 
+            double subtotal = Double.parseDouble(nilai.toString());
+            totalBelanja += subtotal;
+        }
+        
+        double potongan = 0;
+        if (currentVoucher != null) {
+            potongan = currentVoucher.getPotongan();
+        }
+        
+        double grandTotal = totalBelanja - potongan;
+        if (grandTotal < 0) grandTotal = 0; 
+        
+        view.getLblTotalHarga().setText(formatRupiah(grandTotal));
+    }  
+
+    public void tambahKeKeranjang(KasirView view, Voucher currentVoucher) {
         try {
             if (view.getTxtQty().getText().isEmpty()) {
                 JOptionPane.showMessageDialog(view, "Masukkan jumlah beli!");
                 return;
             }
 
+            if (view.getCbIdMasakan().getSelectedItem() == null) return;
             String rawCombo = view.getCbIdMasakan().getSelectedItem().toString(); 
             String[] split = rawCombo.split(":");
             
@@ -78,63 +111,65 @@ public class TransaksiController {
 
             DefaultTableModel model = (DefaultTableModel) view.getTabelKeranjang().getModel();
             
-            // Masukkan ke JTable (Pakai INT agar bersih)
             model.addRow(new Object[]{
                 namaPelanggan,
                 idMenu,      
                 metode,    
                 namaMenu,   
-                (int)harga,    // Casting ke int
+                (int)harga,   
                 qty,
-                (int)subtotal  // Casting ke int
+                (int)subtotal 
             });
 
-            hitungTotalBelanja(view);
+            hitungTotalBelanja(view, currentVoucher);
             view.getTxtQty().setText("");
             view.getLblSubtotalPreview().setText("Rp 0");
 
         } catch (Exception e) {
             JOptionPane.showMessageDialog(view, "Error Tambah: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
-    public void hapusItemKeranjang(KasirView view) {
+    public void hapusItemKeranjang(KasirView view, Voucher currentVoucher) {
         DefaultTableModel model = (DefaultTableModel) view.getTabelKeranjang().getModel();
         int row = view.getTabelKeranjang().getSelectedRow();
-        
         if (row >= 0) {
             model.removeRow(row);
-            hitungTotalBelanja(view);
+            hitungTotalBelanja(view, currentVoucher);
+            
+            // PENTING: Nyalakan lagi tombol pesan
+            view.resetInput(); 
         } else {
             JOptionPane.showMessageDialog(view, "Pilih baris yang mau dihapus!");
         }
     }
 
-  public void simpanTransaksi(KasirView view) {
-    // 1. Validasi awal
+  public void simpanTransaksi(KasirView view, Voucher voucher) {
     if (view.getTabelKeranjang().getRowCount() == 0) {
         JOptionPane.showMessageDialog(view, "Keranjang belanja kosong!");
         return;
     }
 
     String metode = view.getMetodePembayaran().trim();
-    double totalBelanja = 0;
+    double totalBelanjaMurni = 0;
     DefaultTableModel model = (DefaultTableModel) view.getTabelKeranjang().getModel();
 
-    // Hitung total belanja dari tabel
     for (int i = 0; i < model.getRowCount(); i++) {
-        totalBelanja += Double.parseDouble(model.getValueAt(i, 6).toString());
+        totalBelanjaMurni += Double.parseDouble(model.getValueAt(i, 6).toString());
     }
+    
+    double potongan = (voucher != null) ? voucher.getPotongan() : 0;
+    double grandTotal = totalBelanjaMurni - potongan;
+    if(grandTotal < 0) grandTotal = 0;
 
     String noTrx = view.getTxtNoTransaksi().getText();
     String namaPel = view.getTxtNamaPelanggan().getText();
 
-    // ================= LOGIKA KHUSUS CASH =================
     if (metode.equalsIgnoreCase("Cash")) {
-        // Pop-up Input Uang
+        String infoDiskon = (voucher != null) ? "\n(Termasuk Potongan Voucher: " + formatRupiah(potongan) + ")" : "";
+        
         String inputUang = JOptionPane.showInputDialog(view, 
-                "Total Belanja: " + formatRupiah(totalBelanja) + "\nMasukkan Uang Pembayaran:", 
+                "Total Bayar: " + formatRupiah(grandTotal) + infoDiskon + "\nMasukkan Uang Pembayaran:", 
                 "Pembayaran Cash", 
                 JOptionPane.QUESTION_MESSAGE);
         
@@ -144,15 +179,14 @@ public class TransaksiController {
             String uangBersih = inputUang.replaceAll("[^0-9]", "");
             double uangDibayar = Double.parseDouble(uangBersih);
             
-            if (uangDibayar < totalBelanja) {
+            if (uangDibayar < grandTotal) {
                 JOptionPane.showMessageDialog(view, "Uang Kurang! Transaksi dibatalkan.");
                 return;
             }
             
-            double kembalian = uangDibayar - totalBelanja;
+            double kembalian = uangDibayar - grandTotal;
             JOptionPane.showMessageDialog(view, "Pembayaran Diterima.\nKembalian: " + formatRupiah(kembalian));
             
-            // Konfirmasi Simpan khusus untuk Cash
             int confirm = JOptionPane.showConfirmDialog(view, "Simpan Transaksi?", "Konfirmasi", JOptionPane.YES_NO_OPTION);
             if (confirm != JOptionPane.YES_OPTION) return;
 
@@ -161,42 +195,109 @@ public class TransaksiController {
             return;
         }
     } 
-    // ================= LOGIKA KHUSUS KASBON =================
     else {
-        // Jika Kasbon, tidak ada pop-up input uang dan tidak ada confirm dialog.
-        // Langsung lompat ke proses simpan di bawah.
-        System.out.println("DEBUG: Metode Kasbon, langsung menyimpan...");
+        voucher = null; // Reset voucher jika kasbon
     }
 
-    // ================= PROSES SIMPAN (BERLAKU UNTUK KEDUANYA) =================
-    if (dao.simpanTransaksi(noTrx, namaPel, model)) {
-        JOptionPane.showMessageDialog(view, "Transaksi " + metode + " Berhasil Disimpan!");
-        
-        // Bersihkan Form
-        model.setRowCount(0);
-        view.getTxtNamaPelanggan().setText("");
-        view.getLblTotalHarga().setText("Rp 0");
-        view.getTxtNoTransaksi().setText(generateNoTransaksi());
+    Integer idVoucher = (voucher != null) ? voucher.getId() : null;
+    
+    if (dao.simpanTransaksi(noTrx, namaPel, model, idVoucher)) {
+        JOptionPane.showMessageDialog(view, "Transaksi Berhasil Disimpan!");
+        view.resetFormKasir(); 
         refreshRiwayat(view.getModelRiwayat());
     } else {
         JOptionPane.showMessageDialog(view, "Gagal menyimpan ke Database!");
     }
-}
+  }
     
-    public void hitungTotalBelanja(KasirView view) {
-        DefaultTableModel model = (DefaultTableModel) view.getTabelKeranjang().getModel();
-        double total = 0;
+  public void refreshRiwayat(DefaultTableModel model) {
+      riwayatDao.loadDataKeTabel(model);
+  }
+  
+  // --- METHOD BARU: EXPORT PDF ---
+  public void cetakLaporanPDF(KasirView view) {
+        DefaultTableModel model = view.getModelRiwayat();
         
-        for (int i = 0; i < model.getRowCount(); i++) {
-            // Ambil Subtotal dari Index 6
-            Object nilai = model.getValueAt(i, 6); 
-            double subtotal = Double.parseDouble(nilai.toString());
-            total += subtotal;
+        if (model.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(view, "Tidak ada data untuk dicetak!");
+            return;
         }
+
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Simpan Laporan PDF");
+        fileChooser.setSelectedFile(new java.io.File("Laporan_Transaksi.pdf")); 
         
-        view.getLblTotalHarga().setText(formatRupiah(total));
-    }   
-    public void refreshRiwayat(DefaultTableModel model) {
-        riwayatDao.loadDataKeTabel(model);
+        int userSelection = fileChooser.showSaveDialog(view);
+
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            String path = fileChooser.getSelectedFile().getAbsolutePath();
+            if (!path.toLowerCase().endsWith(".pdf")) {
+                path += ".pdf";
+            }
+
+            Document doc = new Document();
+            try {
+                PdfWriter.getInstance(doc, new FileOutputStream(path));
+                doc.open();
+
+                // JUDUL
+                Paragraph title = new Paragraph("LAPORAN RIWAYAT TRANSAKSI");
+                title.setAlignment(Paragraph.ALIGN_CENTER);
+                title.setSpacingAfter(20); 
+                doc.add(title);
+                
+                // INFO TANGGAL
+                Paragraph subTitle = new Paragraph("Dicetak pada: " + new Date().toString());
+                subTitle.setAlignment(Paragraph.ALIGN_CENTER);
+                subTitle.setSpacingAfter(10);
+                doc.add(subTitle);
+
+                // TABEL PDF (9 KOLOM)
+                PdfPTable pdfTable = new PdfPTable(9);
+                pdfTable.setWidthPercentage(100);
+                
+                // Lebar kolom relatif
+                float[] columnWidths = {3f, 3f, 3f, 2f, 3f, 1f, 2f, 2f, 2f};
+                pdfTable.setWidths(columnWidths);
+
+                // HEADER
+                String[] headers = {
+                    "No Trx", "Tanggal", "Pelanggan", "Metode", 
+                    "Menu", "Qty", "Subtotal", "Diskon", "Total"
+                };
+                
+                for (String header : headers) {
+                    PdfPCell cell = new PdfPCell(new Phrase(header));
+                    cell.setHorizontalAlignment(PdfPCell.ALIGN_CENTER);
+                    cell.setBackgroundColor(com.itextpdf.text.BaseColor.LIGHT_GRAY);
+                    pdfTable.addCell(cell);
+                }
+
+                // DATA
+                for (int i = 0; i < model.getRowCount(); i++) {
+                    for (int j = 0; j < model.getColumnCount(); j++) {
+                        Object rawValue = model.getValueAt(i, j);
+                        String cellData = (rawValue != null) ? rawValue.toString() : "";
+                        
+                        PdfPCell cell = new PdfPCell(new Phrase(cellData));
+                        
+                        // Rata Kanan untuk angka
+                        if(j >= 5) cell.setHorizontalAlignment(PdfPCell.ALIGN_RIGHT); 
+                        else cell.setHorizontalAlignment(PdfPCell.ALIGN_LEFT);
+                        
+                        pdfTable.addCell(cell);
+                    }
+                }
+
+                doc.add(pdfTable);
+                doc.close();
+                
+                JOptionPane.showMessageDialog(view, "Sukses! Laporan tersimpan di:\n" + path);
+
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(view, "Gagal mencetak PDF: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
     }
 }
