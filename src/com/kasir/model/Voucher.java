@@ -25,9 +25,4 @@ public class Voucher {
     public String getKode() { return kode; }
     public double getPotongan() { return potongan; }
     public String getStatus() { return status; }
-    
-    @Override
-    public String toString() {
-        return kode + " (Potongan: " + (int)potongan + ")";
-    }
 }

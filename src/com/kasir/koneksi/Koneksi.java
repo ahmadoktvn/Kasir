@@ -18,15 +18,18 @@ public class Koneksi {
     private static Connection mysqlconfig;
     
     public static Connection configDB() throws SQLException {
-        try {
-            String url = "jdbc:mysql://localhost:8889/db_kasir"; // Nama DB harus sama
-            String user = "root";
-            String pass = "root";
-            
-            DriverManager.registerDriver(new com.mysql.cj.jdbc.Driver());
-            mysqlconfig = DriverManager.getConnection(url, user, pass);
-        } catch (SQLException e) {
-            System.err.println("Koneksi Gagal: " + e.getMessage());
+        if (mysqlconfig == null || mysqlconfig.isClosed()) {
+            try {
+                String url = "jdbc:mysql://localhost:8889/db_kasir"; 
+                String user = "root";
+                String pass = "root";
+                
+                DriverManager.registerDriver(new com.mysql.cj.jdbc.Driver());
+                mysqlconfig = DriverManager.getConnection(url, user, pass);
+            } catch (SQLException e) {
+                System.err.println("Gagal Koneksi: " + e.getMessage());
+                throw e;
+            }
         }
         return mysqlconfig;
     }
