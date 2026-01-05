@@ -4,7 +4,7 @@
  */
 package com.kasir;
 
-import com.kasir.view.KasirView;
+import com.kasir.view.MainView;
 import javax.swing.SwingUtilities;
 /**
  *
@@ -13,8 +13,7 @@ import javax.swing.SwingUtilities;
 public class Main {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            // Panggil KasirView, bukan MainView lagi
-            new KasirView().setVisible(true);
+            new MainView().setVisible(true);
         });
     }
 }

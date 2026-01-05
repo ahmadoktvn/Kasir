@@ -24,9 +24,8 @@ public class Menu {
     public String getNama() { return nama; }
     public double getHarga() { return harga; }
 
-    // Ini PENTING agar di ComboBox muncul Namanya, bukan alamat memori
     @Override
     public String toString() {
-        return this.nama;
+        return nama; 
     }
 }
